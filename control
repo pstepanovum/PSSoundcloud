@@ -2,7 +2,7 @@ Package: com.pstepanovum.pssoundcloud
 Name: PSSoundcloud
 Version: 0.1.0
 Architecture: iphoneos-arm
-Description: SoundCloud without ads: no audio, video or banner ads, no Upgrade tab and no rating or tracking prompts.
+Description: SoundCloud without ads: no audio, video or banner ads, no Feed or Upgrade tab and no rating or tracking prompts.
 Homepage: https://github.com/pstepanovum/PSSoundcloud
 Maintainer: Pavel Stepanov
 Author: Pavel Stepanov

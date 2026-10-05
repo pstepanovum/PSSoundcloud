@@ -72,7 +72,7 @@ static char rowStaticRef[] = "row";
     
     if (![[[NSUserDefaults standardUserDefaults] objectForKey:@"PSSoundcloudFirstRun"] isEqualToString:PSIVersionString]) {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"PSSoundcloud Settings Info"
-                                                                       message:@"In the future: hold four fingers anywhere on the screen to re-open PSSoundcloud settings."
+                                                                       message:@"In the future: open Library, tap the gear and tap PSSoundcloud at the top, or hold four fingers anywhere on the screen, to re-open PSSoundcloud settings."
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         
         [alert addAction:[UIAlertAction actionWithTitle:@"I understand!"

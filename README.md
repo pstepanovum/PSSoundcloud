@@ -2,7 +2,7 @@
 **SoundCloud without ads.**\
 `Version v0.1.0` | `Tested on SoundCloud 8.73.0`
 
-PSSoundcloud is an iOS tweak for the SoundCloud app: no audio ads between tracks, no video ads, no banners on track, playlist, profile and search pages, no Upgrade tab, and no "Enjoying SoundCloud?" or tracking prompts.
+PSSoundcloud is an iOS tweak for the SoundCloud app: no audio ads between tracks, no video ads, no banners on track, playlist, profile and search pages, no Feed or Upgrade tab, and no "Enjoying SoundCloud?" or tracking prompts.
 
 Sister projects: [PSInstagram](https://github.com/pstepanovum/PSInstagram), [PSLinkedIn](https://github.com/pstepanovum/PSLinkedIn) and [PSYoutube](https://github.com/pstepanovum/PSYoutube).
 
@@ -11,13 +11,15 @@ Sister projects: [PSInstagram](https://github.com/pstepanovum/PSInstagram), [PSL
 ## What you get
 - **No ads**: SoundCloud's own checks for whether to request ads say no, its ad-free mode is turned on, and requests to ad servers (SoundCloud's ad endpoints, Pandora, Google, Prebid, Aditude, Facebook and ad measurement services) fail
 - **No empty ad slots**: banner spaces aren't created in the first place
+- **No Feed tab**: the scrolling feed of posts from accounts you follow is removed; Home, Search and Library stay
 - **No Upgrade tab**: the SoundCloud Go sales page is removed from the tab bar
 - **No rating prompts**: no "Enjoying SoundCloud?" popup and no system rate-this-app sheet
 - **No tracking prompt**: iOS's "Allow tracking?" question is answered with Ask App Not to Track, without being shown
 - **Settings that don't slip**: backed up to the iOS keychain and restored after a reinstall
 
 ## Opening the settings
-Hold **four fingers** anywhere on the screen for a second.
+- **Library → ⚙ (gear) → PSSoundcloud** at the top, or
+- Hold **four fingers** anywhere on the screen for a second
 
 ## Installing
 PSSoundcloud is sideloaded: you inject it into a decrypted SoundCloud IPA and sign that with your own certificate. It gets its own bundle ID (`com.pstepanovum.pssoundcloud`), so it installs next to the official SoundCloud app.

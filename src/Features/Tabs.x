@@ -1,6 +1,6 @@
 #import "../Utils.h"
 
-// No Upgrade tab (the SoundCloud Go / Go+ sales page)
+// No Feed tab (the scrolling feed from accounts you follow) and no Upgrade tab (the SoundCloud Go / Go+ sales page)
 
 static UIViewController *PSIRootOfTab(UIViewController *controller) {
     if ([controller isKindOfClass:[UINavigationController class]]) {
@@ -10,10 +10,13 @@ static UIViewController *PSIRootOfTab(UIViewController *controller) {
     return controller;
 }
 
-static BOOL PSIIsUpgradeTab(UIViewController *controller) {
+static BOOL PSIShouldHideTab(UIViewController *controller) {
     NSString *rootClass = NSStringFromClass([PSIRootOfTab(controller) class]);
 
-    return [rootClass containsString:@"Upsell"] || [rootClass containsString:@"Upgrade"] || [rootClass containsString:@"Subscription"] || [rootClass containsString:@"Conversion"];
+    if ([PSIUtils getBoolPref:@"hide_feed_tab"] && [rootClass containsString:@"ElevatorFeed"]) return YES;
+    if ([PSIUtils getBoolPref:@"hide_upgrade_tab"] && ([rootClass containsString:@"Upsell"] || [rootClass containsString:@"Upgrade"])) return YES;
+
+    return NO;
 }
 
 @interface _TtC10SoundCloud20RootTabBarController : UITabBarController
@@ -25,11 +28,9 @@ static BOOL PSIIsUpgradeTab(UIViewController *controller) {
         PSILog(@"Tab %@ (%@)", controller.tabBarItem.title, NSStringFromClass([PSIRootOfTab(controller) class]));
     }
 
-    if (![PSIUtils getBoolPref:@"hide_upgrade_tab"]) return %orig;
-
     NSMutableArray *kept = [NSMutableArray array];
     for (UIViewController *controller in viewControllers) {
-        if (!PSIIsUpgradeTab(controller)) [kept addObject:controller];
+        if (!PSIShouldHideTab(controller)) [kept addObject:controller];
     }
 
     // Never leave the tab bar empty

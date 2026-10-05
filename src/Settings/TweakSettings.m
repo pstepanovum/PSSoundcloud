@@ -33,6 +33,7 @@
         @{
             @"header": @"Tabs",
             @"rows": @[
+                [PSISetting switchCellWithTitle:@"Hide Feed tab" subtitle:@"Removes the scrolling feed of posts from accounts you follow" defaultsKey:@"hide_feed_tab" requiresRestart:YES],
                 [PSISetting switchCellWithTitle:@"Hide Upgrade tab" subtitle:@"Removes the SoundCloud Go sales page from the tab bar" defaultsKey:@"hide_upgrade_tab" requiresRestart:YES]
             ]
         },
