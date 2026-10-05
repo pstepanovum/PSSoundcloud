@@ -1,0 +1,262 @@
+#import <Security/Security.h>
+#import "../Utils.h"
+#import "../../modules/fishhook/fishhook.h"
+
+// Fixes for running the app re-signed with your own certificate.
+// The original app groups and keychain access groups are not in our entitlements,
+// so we redirect them to storage the app is actually allowed to use.
+
+///////////////////////////////////////////////////////////
+
+// App group containers
+
+static NSURL *PSIFallbackGroupContainer(NSString *groupIdentifier) {
+    NSURL *library = [[[NSFileManager defaultManager] URLsForDirectory:NSLibraryDirectory inDomains:NSUserDomainMask] firstObject];
+    NSURL *container = [[library URLByAppendingPathComponent:@"PSIAppGroups" isDirectory:YES] URLByAppendingPathComponent:groupIdentifier isDirectory:YES];
+
+    [[NSFileManager defaultManager] createDirectoryAtURL:container withIntermediateDirectories:YES attributes:nil error:nil];
+
+    return container;
+}
+
+%hook NSFileManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
+    NSURL *container = %orig;
+    if (container || groupIdentifier.length == 0) return container;
+
+    return PSIFallbackGroupContainer(groupIdentifier);
+}
+%end
+
+// App group user defaults (crashes in CFPreferencesSynchronize without an entitled container)
+%hook NSUserDefaults
+- (instancetype)initWithSuiteName:(NSString *)suiteName {
+    if ([suiteName hasPrefix:@"group."]) {
+        NSURL *container = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:suiteName];
+
+        // Only remap groups we are not entitled to
+        if (![container.path containsString:@"/PSIAppGroups/"]) return %orig;
+
+        return %orig([@"psi." stringByAppendingString:suiteName]);
+    }
+
+    return %orig;
+}
+
+// Private initializer used for app group suites; keep suites out of our fallback containers
+- (instancetype)_initWithSuiteName:(NSString *)suiteName container:(NSURL *)container {
+    if ([container.path containsString:@"/PSIAppGroups/"]) {
+        NSString *mappedSuiteName = [suiteName hasPrefix:@"group."] ? [@"psi." stringByAppendingString:suiteName] : suiteName;
+        return %orig(mappedSuiteName, nil);
+    }
+
+    return %orig;
+}
+%end
+
+///////////////////////////////////////////////////////////
+
+// SoundCloud only opens its database for writing when it runs under its own bundle ID; anything else
+// (its widgets, the watch app, tests) gets a read-only copy, and a fresh install then exits on launch.
+// Report the original bundle ID to the app's code; the app keeps its own bundle ID on the device.
+static NSString *const PSIOriginalBundleIdentifier = @"com.soundcloud.TouchApp";
+
+%hook NSBundle
+- (NSString *)bundleIdentifier {
+    if (self == [NSBundle mainBundle]) return PSIOriginalBundleIdentifier;
+
+    return %orig;
+}
+
+- (id)objectForInfoDictionaryKey:(NSString *)key {
+    if (self == [NSBundle mainBundle] && [key isEqualToString:@"CFBundleIdentifier"]) return PSIOriginalBundleIdentifier;
+
+    return %orig;
+}
+
+// Code that looks itself up by the (spoofed) bundle ID must still find the app
++ (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
+    if ([identifier isEqualToString:PSIOriginalBundleIdentifier]) return [NSBundle mainBundle];
+
+    return %orig;
+}
+
+- (NSDictionary *)infoDictionary {
+    NSDictionary *info = %orig;
+    if (self != [NSBundle mainBundle] || [info[@"CFBundleIdentifier"] isEqualToString:PSIOriginalBundleIdentifier]) return info;
+
+    NSMutableDictionary *spoofed = [info mutableCopy];
+    spoofed[@"CFBundleIdentifier"] = PSIOriginalBundleIdentifier;
+    return spoofed;
+}
+%end
+
+///////////////////////////////////////////////////////////
+
+// Pretend to be an App Store build, so the app doesn't treat itself as a TestFlight beta
+
+%hook NSBundle
+- (NSURL *)appStoreReceiptURL {
+    NSURL *url = %orig;
+
+    if ([url.lastPathComponent isEqualToString:@"sandboxReceipt"]) {
+        return [[url URLByDeletingLastPathComponent] URLByAppendingPathComponent:@"receipt"];
+    }
+
+    return url;
+}
+%end
+
+///////////////////////////////////////////////////////////
+
+// Keychain access groups
+
+// The access group this app is actually allowed to use (from the signing entitlements)
+static NSString *PSIKeychainAccessGroup;
+
+static NSString *PSIResolveKeychainAccessGroup(void) {
+    NSDictionary *query = @{
+        (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService: @"PSSoundcloud",
+        (__bridge id)kSecAttrAccount: @"PSSoundcloudAccessGroupProbe",
+        (__bridge id)kSecReturnAttributes: @YES
+    };
+
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+    if (status == errSecItemNotFound) {
+        status = SecItemAdd((__bridge CFDictionaryRef)query, &result);
+    }
+
+    if (status != errSecSuccess || !result) {
+        NSLog(@"[PSSoundcloud] Could not resolve keychain access group (status %d)", (int)status);
+        return nil;
+    }
+
+    NSDictionary *attributes = (__bridge_transfer NSDictionary *)result;
+    return attributes[(__bridge id)kSecAttrAccessGroup];
+}
+
+// Every item ends up in the single access group we have, so items the app puts in
+// the original groups are tagged with their original group. Queries for a group then only
+// see that group's items, as they would with real separate groups.
+static NSString *PSIGroupTag(NSString *group) {
+    return [@"psi:" stringByAppendingString:group];
+}
+
+static BOOL PSIShouldRemapGroup(NSString *group) {
+    return group && ![group isEqualToString:PSIKeychainAccessGroup] && ![group isEqualToString:@"com.apple.token"];
+}
+
+static NSDictionary *PSIRemapAccessGroup(CFDictionaryRef query) {
+    if (!query || !CFDictionaryContainsKey(query, kSecAttrAccessGroup)) return nil;
+
+    NSMutableDictionary *mutableQuery = [(__bridge NSDictionary *)query mutableCopy];
+    NSString *group = mutableQuery[(__bridge id)kSecAttrAccessGroup];
+    if (!PSIShouldRemapGroup(group)) return nil;
+
+    if (PSIKeychainAccessGroup) {
+        mutableQuery[(__bridge id)kSecAttrAccessGroup] = PSIKeychainAccessGroup;
+    }
+    else {
+        [mutableQuery removeObjectForKey:(__bridge id)kSecAttrAccessGroup];
+    }
+
+    // Only password items have a description attribute (keys and certificates don't)
+    id itemClass = mutableQuery[(__bridge id)kSecClass];
+    if ([itemClass isEqual:(__bridge id)kSecClassGenericPassword] || [itemClass isEqual:(__bridge id)kSecClassInternetPassword]) {
+        mutableQuery[(__bridge id)kSecAttrDescription] = PSIGroupTag(group);
+    }
+
+    return mutableQuery;
+}
+
+static void PSILogKeychainStatus(const char *function, OSStatus status, CFDictionaryRef query) {
+    if (status == errSecSuccess || status == errSecItemNotFound || status == errSecDuplicateItem) return;
+
+    id group = query ? ((__bridge NSDictionary *)query)[(__bridge id)kSecAttrAccessGroup] : nil;
+    NSLog(@"[PSSoundcloud] %s failed with status %d (requested access group: %@)", function, (int)status, group);
+}
+
+static OSStatus (*orig_SecItemUpdate)(CFDictionaryRef, CFDictionaryRef);
+
+// Apps signed with the same team share our access group, so an item with the same service and
+// account may already exist without our group tag (left by another sideloaded copy of the app).
+// Queries for the original group can't see it, and adding fails as a duplicate, so the app could
+// never store it (SoundCloud's login failed this way). Take the existing item over instead.
+static OSStatus PSIReplaceUntaggedDuplicate(NSDictionary *item) {
+    NSArray *primaryKeys = @[(__bridge id)kSecClass, (__bridge id)kSecAttrService, (__bridge id)kSecAttrAccount, (__bridge id)kSecAttrServer,
+                             (__bridge id)kSecAttrProtocol, (__bridge id)kSecAttrPort, (__bridge id)kSecAttrPath, (__bridge id)kSecAttrAccessGroup,
+                             (__bridge id)kSecAttrSynchronizable];
+
+    NSMutableDictionary *query = [NSMutableDictionary dictionary];
+    NSMutableDictionary *update = [NSMutableDictionary dictionary];
+    for (id key in item) {
+        if ([primaryKeys containsObject:key]) query[key] = item[key];
+        else if (![key hasPrefix:@"r_"] && ![key hasPrefix:@"m_"] && ![key hasPrefix:@"u_"]) update[key] = item[key];
+    }
+
+    return orig_SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
+}
+
+static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
+static OSStatus hook_SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
+    NSDictionary *remapped = PSIRemapAccessGroup(attributes);
+    OSStatus status = orig_SecItemAdd(remapped ? (__bridge CFDictionaryRef)remapped : attributes, result);
+
+    if (status == errSecDuplicateItem && remapped[(__bridge id)kSecAttrDescription]) {
+        status = PSIReplaceUntaggedDuplicate(remapped);
+        if (result) *result = NULL;
+    }
+
+    PSILogKeychainStatus("SecItemAdd", status, attributes);
+    return status;
+}
+
+static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
+static OSStatus hook_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result) {
+    NSDictionary *remapped = PSIRemapAccessGroup(query);
+    OSStatus status = orig_SecItemCopyMatching(remapped ? (__bridge CFDictionaryRef)remapped : query, result);
+
+    PSILogKeychainStatus("SecItemCopyMatching", status, query);
+    return status;
+}
+
+static OSStatus hook_SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate) {
+    NSDictionary *remappedQuery = PSIRemapAccessGroup(query);
+    NSDictionary *remappedAttributes = PSIRemapAccessGroup(attributesToUpdate);
+
+    OSStatus status = orig_SecItemUpdate(
+        remappedQuery ? (__bridge CFDictionaryRef)remappedQuery : query,
+        remappedAttributes ? (__bridge CFDictionaryRef)remappedAttributes : attributesToUpdate
+    );
+
+    PSILogKeychainStatus("SecItemUpdate", status, query);
+    return status;
+}
+
+static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
+static OSStatus hook_SecItemDelete(CFDictionaryRef query) {
+    NSDictionary *remapped = PSIRemapAccessGroup(query);
+    OSStatus status = orig_SecItemDelete(remapped ? (__bridge CFDictionaryRef)remapped : query);
+
+    PSILogKeychainStatus("SecItemDelete", status, query);
+    return status;
+}
+
+%ctor {
+    // Must run before rebinding, so these calls reach the real keychain functions
+    PSIKeychainAccessGroup = PSIResolveKeychainAccessGroup();
+    NSLog(@"[PSSoundcloud] Keychain access group: %@", PSIKeychainAccessGroup);
+
+    // Rebind symbol pointers instead of patching Security's code,
+    // which iOS kills the process for on non-jailbroken devices
+    rebind_symbols((struct rebinding[4]){
+        {"SecItemAdd", (void *)hook_SecItemAdd, (void **)&orig_SecItemAdd},
+        {"SecItemCopyMatching", (void *)hook_SecItemCopyMatching, (void **)&orig_SecItemCopyMatching},
+        {"SecItemUpdate", (void *)hook_SecItemUpdate, (void **)&orig_SecItemUpdate},
+        {"SecItemDelete", (void *)hook_SecItemDelete, (void **)&orig_SecItemDelete},
+    }, 4);
+
+    %init;
+}

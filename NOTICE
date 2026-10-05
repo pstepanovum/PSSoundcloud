@@ -1,0 +1,19 @@
+PSSoundcloud
+Copyright (C) 2026 Pavel Stepanov
+
+PSSoundcloud is distributed under the GNU General Public License v3.0 (see LICENSE).
+Its settings screen and sideloading fixes are derived from PSInstagram, which is a
+fork of SCInsta. It contains code from the following projects:
+
+SCInsta
+Copyright (C) SoCuul
+https://github.com/SoCuul/SCInsta
+Licensed under the GNU General Public License v3.0
+
+fishhook
+Copyright (c) 2013, Facebook, Inc.
+https://github.com/facebook/fishhook
+Licensed under the BSD 3-Clause License (see modules/fishhook/LICENSE)
+
+FLEXing (git submodule)
+https://github.com/SoCuul/FLEXing

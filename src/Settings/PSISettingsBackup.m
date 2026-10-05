@@ -1,0 +1,110 @@
+#import "PSISettingsBackup.h"
+#import <Security/Security.h>
+#import "PSISetting.h"
+#import "TweakSettings.h"
+
+static NSString *const PSIBackupService = @"PSSoundcloud";
+static NSString *const PSIBackupAccount = @"PSSoundcloudSettingsBackup";
+
+// Set once settings exist in this install, so a backup is only restored into a fresh install
+static NSString *const PSIBackupMarkerKey = @"PSSoundcloudSettingsBackupMarker";
+
+@implementation PSISettingsBackup
+
++ (void)collectKeysFromSections:(NSArray *)sections into:(NSMutableSet *)keys {
+    for (NSDictionary *section in sections) {
+        for (PSISetting *row in section[@"rows"]) {
+            if (row.defaultsKey.length > 0) [keys addObject:row.defaultsKey];
+            if (row.navSections) [self collectKeysFromSections:row.navSections into:keys];
+        }
+    }
+}
+
++ (NSSet *)settingsKeys {
+    NSMutableSet *keys = [NSMutableSet set];
+
+    [self collectKeysFromSections:[PSITweakSettings sections] into:keys];
+    [keys addObjectsFromArray:[[PSITweakSettings menus] allKeys]];
+
+    return keys;
+}
+
++ (NSDictionary *)keychainQuery {
+    return [self keychainQueryWithService:PSIBackupService account:PSIBackupAccount];
+}
+
++ (NSDictionary *)keychainQueryWithService:(NSString *)service account:(NSString *)account {
+    return @{
+        (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService: service,
+        (__bridge id)kSecAttrAccount: account
+    };
+}
+
++ (NSData *)backupDataWithService:(NSString *)service account:(NSString *)account {
+    NSMutableDictionary *query = [[self keychainQueryWithService:service account:account] mutableCopy];
+    query[(__bridge id)kSecReturnData] = @YES;
+    query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+
+    CFTypeRef result = NULL;
+    if (SecItemCopyMatching((__bridge CFDictionaryRef)query, &result) != errSecSuccess || !result) return nil;
+
+    return (__bridge_transfer NSData *)result;
+}
+
++ (void)save {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    // The real bundle ID: -[NSBundle bundleIdentifier] is spoofed for the app's own code
+    NSString *bundleIdentifier = (__bridge NSString *)CFBundleGetIdentifier(CFBundleGetMainBundle());
+    NSDictionary *stored = [defaults persistentDomainForName:bundleIdentifier];
+
+    // Only values the user actually set; registered defaults are applied on every launch anyway
+    NSMutableDictionary *values = [NSMutableDictionary dictionary];
+    for (NSString *key in [self settingsKeys]) {
+        if (stored[key] != nil) values[key] = stored[key];
+    }
+
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:values format:NSPropertyListBinaryFormat_v1_0 options:0 error:nil];
+    if (!data) return;
+
+    [defaults setBool:YES forKey:PSIBackupMarkerKey];
+
+    NSDictionary *query = [self keychainQuery];
+    NSDictionary *update = @{ (__bridge id)kSecValueData: data };
+
+    OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
+    if (status == errSecItemNotFound) {
+        NSMutableDictionary *item = [query mutableCopy];
+        item[(__bridge id)kSecValueData] = data;
+        item[(__bridge id)kSecAttrAccessible] = (__bridge id)kSecAttrAccessibleAfterFirstUnlock;
+
+        status = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    }
+
+    if (status != errSecSuccess) {
+        NSLog(@"[PSSoundcloud] Failed to back up settings (status %d)", (int)status);
+    }
+}
+
++ (void)restoreIfNeeded {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if ([defaults boolForKey:PSIBackupMarkerKey]) return;
+
+    NSData *data = [self backupDataWithService:PSIBackupService account:PSIBackupAccount];
+
+    if (data) {
+        NSDictionary *values = [NSPropertyListSerialization propertyListWithData:data options:0 format:nil error:nil];
+
+        if ([values isKindOfClass:[NSDictionary class]]) {
+            NSLog(@"[PSSoundcloud] Restoring %lu settings from keychain backup", (unsigned long)values.count);
+
+            [values enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+                [defaults setObject:value forKey:key];
+            }];
+        }
+    }
+
+    [defaults setBool:YES forKey:PSIBackupMarkerKey];
+}
+
+@end
