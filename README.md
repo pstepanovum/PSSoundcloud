@@ -2,7 +2,7 @@
 **SoundCloud without ads.**\
 `Version v0.1.0` | `Tested on SoundCloud 8.73.0`
 
-PSSoundcloud is an iOS tweak for the SoundCloud app: no audio ads between tracks, no video ads, no banners on track, playlist, profile and search pages, and no "Enjoying SoundCloud?" prompts.
+PSSoundcloud is an iOS tweak for the SoundCloud app: no audio ads between tracks, no video ads, no banners on track, playlist, profile and search pages, no Upgrade tab, and no "Enjoying SoundCloud?" or tracking prompts.
 
 Sister projects: [PSInstagram](https://github.com/pstepanovum/PSInstagram), [PSLinkedIn](https://github.com/pstepanovum/PSLinkedIn) and [PSYoutube](https://github.com/pstepanovum/PSYoutube).
 
@@ -11,7 +11,9 @@ Sister projects: [PSInstagram](https://github.com/pstepanovum/PSInstagram), [PSL
 ## What you get
 - **No ads**: SoundCloud's own checks for whether to request ads say no, its ad-free mode is turned on, and requests to ad servers (SoundCloud's ad endpoints, Pandora, Google, Prebid, Aditude, Facebook and ad measurement services) fail
 - **No empty ad slots**: banner spaces aren't created in the first place
+- **No Upgrade tab**: the SoundCloud Go sales page is removed from the tab bar
 - **No rating prompts**: no "Enjoying SoundCloud?" popup and no system rate-this-app sheet
+- **No tracking prompt**: iOS's "Allow tracking?" question is answered with Ask App Not to Track, without being shown
 - **Settings that don't slip**: backed up to the iOS keychain and restored after a reinstall
 
 ## Opening the settings

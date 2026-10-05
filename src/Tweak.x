@@ -14,6 +14,8 @@ static void PSISetupSettings(void) {
     NSDictionary *psiDefaults = @{
         @"block_ads": @(YES),
         @"hide_rating_prompts": @(YES),
+        @"hide_tracking_prompt": @(YES),
+        @"hide_upgrade_tab": @(YES),
         @"log_requests": @(NO),
         @"flex_gesture": @(NO)
     };

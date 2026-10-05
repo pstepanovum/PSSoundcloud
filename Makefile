@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = PSSoundcloud
 
 $(TWEAK_NAME)_FILES = $(shell find src -type f \( -iname \*.x -o -iname \*.xm -o -iname \*.m \)) modules/fishhook/fishhook.c
-$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation Security StoreKit
+$(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation Security StoreKit AppTrackingTransparency
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-unsupported-availability-guard -Wno-unused-value -Wno-deprecated-declarations -Wno-nullability-completeness -Wno-unused-function -Wno-incompatible-pointer-types
 $(TWEAK_NAME)_LOGOSFLAGS = --c warnings=none
 

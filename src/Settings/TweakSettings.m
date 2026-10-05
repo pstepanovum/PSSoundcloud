@@ -26,7 +26,14 @@
         @{
             @"header": @"Prompts",
             @"rows": @[
-                [PSISetting switchCellWithTitle:@"Hide rating prompts" subtitle:@"No \"Enjoying SoundCloud?\" or rate-the-app popups" defaultsKey:@"hide_rating_prompts"]
+                [PSISetting switchCellWithTitle:@"Hide rating prompts" subtitle:@"No \"Enjoying SoundCloud?\" or rate-the-app popups" defaultsKey:@"hide_rating_prompts"],
+                [PSISetting switchCellWithTitle:@"Hide tracking prompt" subtitle:@"Answers iOS's \"Allow tracking?\" prompt with Ask App Not to Track, without showing it" defaultsKey:@"hide_tracking_prompt"]
+            ]
+        },
+        @{
+            @"header": @"Tabs",
+            @"rows": @[
+                [PSISetting switchCellWithTitle:@"Hide Upgrade tab" subtitle:@"Removes the SoundCloud Go sales page from the tab bar" defaultsKey:@"hide_upgrade_tab" requiresRestart:YES]
             ]
         },
         @{
