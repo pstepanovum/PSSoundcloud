@@ -1,6 +1,6 @@
 #import "../Utils.h"
 
-// No ads: SoundCloud's own "ad-free" switch is turned on, and requests to ad servers fail
+// No ads: SoundCloud's own checks for whether to request ads say no, and requests to ad servers fail
 
 // Ad networks and SoundCloud ad endpoints. Hosts match the domain and its subdomains
 static NSArray<NSString *> *PSIBlockedHosts(void) {
@@ -74,13 +74,6 @@ static BOOL PSIIsAdRequest(NSURLRequest *request) {
 %end
 
 ///////////////////////////////////////////////////////////
-
-// The switch SoundCloud Go and Go+ turn on for their subscribers
-%hook _TtC10SoundCloud19UserFeaturesService
-- (BOOL)isNoAudioAdsEnabled {
-    return [PSIUtils getBoolPref:@"block_ads"] ? YES : %orig;
-}
-%end
 
 // Asked before requesting any ad: audio ads in the play queue, banners and interstitials
 %hook _TtC10SoundCloud19AdsRequestPermitter

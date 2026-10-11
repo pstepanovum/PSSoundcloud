@@ -21,7 +21,7 @@
             @"rows": @[
                 [PSISetting switchCellWithTitle:@"Block ads" subtitle:@"No audio, video or banner ads" defaultsKey:@"block_ads" requiresRestart:YES]
             ],
-            @"footer": @"Turns on SoundCloud's own ad-free mode and blocks requests to ad servers."
+            @"footer": @"Stops SoundCloud from requesting ads and blocks requests to ad servers."
         },
         @{
             @"header": @"Prompts",

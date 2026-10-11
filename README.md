@@ -9,7 +9,7 @@ Sister projects: [PSInstagram](https://github.com/pstepanovum/PSInstagram), [PSL
 ---
 
 ## What you get
-- **No ads**: SoundCloud's own checks for whether to request ads say no, its ad-free mode is turned on, and requests to ad servers (SoundCloud's ad endpoints, Pandora, Google, Prebid, Aditude, Facebook and ad measurement services) fail
+- **No ads**: SoundCloud's own checks for whether to request ads say no, and requests to ad servers (SoundCloud's ad endpoints, Pandora, Google, Prebid, Aditude, Facebook and ad measurement services) fail. Nothing from SoundCloud Go is unlocked
 - **No empty ad slots**: banner spaces aren't created in the first place
 - **No Feed tab**: the scrolling feed of posts from accounts you follow is removed; Home, Search and Library stay
 - **No Upgrade tab**: the SoundCloud Go sales page is removed from the tab bar
